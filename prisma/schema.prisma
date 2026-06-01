@@ -1,0 +1,130 @@
+// Diagrama Físico — Mimica Backend
+// Generado desde el DER v4
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Rol {
+  admin
+  usuario
+  invitado
+}
+
+// ─────────────────────────────────────────
+// TABLAS
+// ─────────────────────────────────────────
+
+model Usuario {
+  id               String   @id @default(uuid()) @db.Uuid
+  nombre           String
+  email            String   @unique
+  contrasena_hash  String
+  rol              Rol      @default(usuario)
+  activo           Boolean  @default(true)
+  creado_en        DateTime @default(now())
+  actualizado_en   DateTime @updatedAt
+
+  perfiles         PerfilAccesibilidad[]
+  registros        RegistroAccion[]
+  gestos           Gesto[]
+  documentos       Documento[]
+
+  @@map("usuarios")
+}
+
+model PerfilAccesibilidad {
+  id          String   @id @default(uuid()) @db.Uuid
+  usuario_id  String   @db.Uuid
+  nombre      String
+  activo      Boolean  @default(true)
+  creado_en   DateTime @default(now())
+
+  usuario     Usuario        @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  mapeos      MapeoGesto[]
+
+  @@map("perfiles_accesibilidad")
+}
+
+model CatalogoAccion {
+  id           String  @id @default(uuid()) @db.Uuid
+  nombre       String
+  tipo         String
+  parametros   Json?
+  descripcion  String?
+
+  mapeos       MapeoGesto[]
+
+  @@map("catalogo_acciones")
+}
+
+model Gesto {
+  id                 String   @id @default(uuid()) @db.Uuid
+  creado_por         String   @db.Uuid
+  nombre             String
+  descripcion        String?
+  valores_referencia Json?
+  tolerancia_default Float    @default(0.8)
+  activo             Boolean  @default(true)
+  creado_en          DateTime @default(now())
+
+  autor              Usuario      @relation(fields: [creado_por], references: [id])
+  mapeos             MapeoGesto[]
+
+  @@map("gestos")
+}
+
+model MapeoGesto {
+  id          String   @id @default(uuid()) @db.Uuid
+  perfil_id   String   @db.Uuid
+  gesto_id    String   @db.Uuid
+  accion_id   String   @db.Uuid
+  activo      Boolean  @default(true)
+  creado_en   DateTime @default(now())
+
+  perfil      PerfilAccesibilidad @relation(fields: [perfil_id], references: [id], onDelete: Cascade)
+  gesto       Gesto               @relation(fields: [gesto_id], references: [id])
+  accion      CatalogoAccion      @relation(fields: [accion_id], references: [id])
+  registros   RegistroAccion[]
+
+  @@unique([perfil_id, gesto_id])
+  @@map("mapeos_gestos")
+}
+
+model RegistroAccion {
+  id               String   @id @default(uuid()) @db.Uuid
+  usuario_id       String   @db.Uuid
+  mapeo_id         String   @db.Uuid
+  gesto_detectado  String
+  exitoso          Boolean  @default(false)
+  ocurrido_en      DateTime @default(now())
+
+  usuario          Usuario    @relation(fields: [usuario_id], references: [id])
+  mapeo            MapeoGesto @relation(fields: [mapeo_id], references: [id])
+
+  @@map("registro_acciones")
+}
+
+model Documento {
+  id             String   @id @default(uuid()) @db.Uuid
+  usuario_id     String   @db.Uuid
+  nombre         String
+  tipo           String
+  ruta_archivo   String
+  pagina_actual  Int      @default(1)
+  fecha_subida   DateTime @default(now())
+  ultimo_acceso  DateTime @default(now())
+
+  usuario        Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@map("documentos")
+}
